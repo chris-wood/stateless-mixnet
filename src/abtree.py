@@ -67,7 +67,7 @@ class ABTree(object):
 
     def insert(self, components, item):
         head = components[0]
-        match = find_match(head)
+        match = self.find_match(head)
 
         if match != None:
             if len(components) > 1:
@@ -100,7 +100,7 @@ names = map(lambda n : n.split("/"), names)
 for name in names:
     table.add_item(name, 1) # 1 is the item we're adding (link ID in this case)
 
-p = table.p
+p = table.params.p
 
 
 
