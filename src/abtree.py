@@ -61,7 +61,7 @@ class ABTree(object):
 
     def find_match(self, value):
         for (entry, child) in self.entries:
-            if compare(entry, value, self.params.k, self.params.gk):
+            if compare(entry, value, self.params.k, self.params.p):
                 return child
         return None
 
@@ -79,6 +79,21 @@ class ABTree(object):
             if len(components) > 1 :
                 child.insert(components[1:], item)
             self.entries.append((head, child))
+
+    def __tostring__(self, indents = 0):
+        s = ""
+        for (entry, child) in self.entries:
+            s += "  " * indents
+            s += str(entry)
+            s += "\n"
+            s += child.__tostring__(indents + 1)
+        return s
+
+    def __str__(self):
+        return self.__repr__()
+
+    def __repr__(self):
+        return self.__tostring__(0)
 
 # Choose a random prime
 n = int(sys.argv[1])
@@ -101,6 +116,9 @@ for name in names:
     table.add_item(name, 1) # 1 is the item we're adding (link ID in this case)
 
 p = table.params.p
+
+print table.root
+
 
 
 
