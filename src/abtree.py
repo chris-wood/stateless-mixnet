@@ -1,82 +1,116 @@
 import sys
 import random
+import primes
+import hashlib
 
-# Sieve of Eratosthenes
-# Code by David Eppstein, UC Irvine, 28 Feb 2002
-# http://code.activestate.com/recipes/117119/
-def gen_primes(n):
-    """ Generate an infinite sequence of prime numbers.
-    """
-    # Maps composites to primes witnessing their compositeness.
-    # This is memory efficient, as the sieve is not "run forward"
-    # indefinitely, but only as long as required by the current
-    # number being tested.
-    #
-    D = {}
-
-    # The running integer that's checked for primeness
-    q = 2
-    count = 0
-    while count < n:
-        if q not in D:
-            # q is a new prime.
-            # Yield it and mark its first multiple that isn't
-            # already marked in previous iterations
-            #
-            yield q
-            D[q * q] = [q]
-            count += 1
-        else:
-            # q is composite. D[q] is the list of primes that
-            # divide it. Since we've reached q, we no longer
-            # need it in the map, but we'll mark the next
-            # multiples of its witnesses to prepare for larger
-            # numbers
-            #
-            for p in D[q]:
-                D.setdefault(p + q, []).append(p)
-            del D[q]
-
-        q += 1
-
-n = int(sys.argv[1]) #nth prime
-primes = [p for p in gen_primes(n)]
-p = primes[-1]
-
-# Pick a generator
-g = random.randint(0, p)
-
-# Compute k and public key 
-k = random.randint(0, p)
-gk = pow(g, k, p)
+# String to int
+def int_digest(s):
+    return int(hashlib.sha1(s).hexdigest(), 16)
 
 # Our "hash" function
-def hash(secret, salt, gen, public_key):
-    h1 = pow(public_key, salt, p)
-    h2 = pow(gen, secret + salt, p)
+def hash(secret, salt, gen, public_key, modulus):
+    h1 = pow(public_key, salt, modulus)
+    h2 = pow(gen, secret + salt, modulus)
     return (h1, h2)
 
-# Generate the secret and salts
-secret = random.randint(0, p)
-r = random.randint(0, p)
-s = random.randint(0, p)
-
-# Generate the hashes
-h1 = hash(secret, r, g, gk)
-h2 = hash(secret, s, g, gk)
-
 # Our "compare" function
-def compare(hash1, hash2, secret_key, public_key):
+def compare(hash1, hash2, secret_key, modulus):
     (h11, h12) = hash1
     (h21, h22) = hash2
 
-    p1 = (pow(h12, k, p) * h21) % p
-    p2 = (pow(h22, k, p) * h11) % p
+    p1 = (pow(h12, secret_key, modulus) * h21) % modulus
+    p2 = (pow(h22, secret_key, modulus) * h11) % modulus
 
     return p1 == p2
 
-equal = compare(h1, h2, k, gk)
-print "%s == %s? %s" % (str(h1), str(h2), equal)
+class Params(object):
+    def __init__(self, g, k, p):
+        self.g = g
+        self.k = k
+        self.gk = pow(g, k, p)
+        self.p = p
+
+# The "anonymous" tree
+class ABTable(object):
+    def __init__(self, n):
+        self.n = n
+
+        p = primes.get_nth_prime(n)
+        g = random.randint(0, p)
+        k = random.randint(0, p)
+        self.params = Params(g, k, p)
+
+        self.root = ABTree(self.params)
+
+    def _compute_hash(self, val):
+        val = int_digest(val) % self.params.p
+        r = random.randint(0, self.params.p)
+        return hash(val, r, self.params.g, self.params.gk, self.params.p)
+
+    def add_item(self, name, item):
+        print name
+        name = map(lambda n : self._compute_hash(n), name)
+        self.root.insert(name, item)
+
+# The "anonymous" tree
+class ABTree(object):
+    def __init__(self, params):
+        self.entries = []
+        self.params = params
+        self.item = None
+
+    def find_match(self, value):
+        for (entry, child) in self.entries:
+            if compare(entry, value, self.params.k, self.params.gk):
+                return child
+        return None
+
+    def insert(self, components, item):
+        head = components[0]
+        match = find_match(head)
+
+        if match != None:
+            if len(components) > 1:
+                match.insert(components[1:], item)
+            else:
+                self.item = item
+        else:
+            child = ABTree(self.params)
+            if len(components) > 1 :
+                child.insert(components[1:], item)
+            self.entries.append((head, child))
+
+# Choose a random prime
+n = int(sys.argv[1])
+table = ABTable(n)
+
+names = [
+    "/a/b/c/d1",
+    "/a/b/c/d2",
+    "/a/b/c/d3",
+    "/a/b/c1",
+    "/a/b/c2",
+    "/a/b/c2",
+    "/a/b1",
+    "/a/b2",
+    "/a/b3",
+]
+
+names = map(lambda n : n.split("/"), names)
+for name in names:
+    table.add_item(name, 1) # 1 is the item we're adding (link ID in this case)
+
+p = table.p
+
+
+
+# Generate the secret and salts
+# secret = random.randint(0, p)
+# r = random.randint(0, p)
+# s = random.randint(0, p)
+# h2 = hash(name, s, g, gk, p)
+# equal = compare(h1, h2, k, gk)
+# print "%s == %s? %s" % (str(h1), str(h2), equal)
 
 # Protocol:
 # - Two adjacent nodes exchange public keys and group parameters... that's it.
