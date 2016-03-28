@@ -117,6 +117,7 @@ for name in names:
 
 p = table.params.p
 
+# Test it out.
 print table.root
 
 
