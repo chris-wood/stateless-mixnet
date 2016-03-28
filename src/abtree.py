@@ -2,6 +2,16 @@ import sys
 import random
 import primes
 import hashlib
+import time
+
+def timed(func):
+    def time_decorator(*args, **kw):
+        ts = time.time()
+        result = func(*args, **kw)
+        te = time.time()
+        print >> sys.stderr, "%s: %f" % (str(func.__name__), (te - ts))
+        return result
+    return time_decorator
 
 # String to int
 def int_digest(s):
@@ -47,10 +57,13 @@ class ABTable(object):
         r = random.randint(0, self.params.p)
         return hash(val, r, self.params.g, self.params.gk, self.params.p)
 
+    @timed
     def add_item(self, name, item):
-        print name
-        name = map(lambda n : self._compute_hash(n), name)
+        start = time.time()
+        name = map(lambda n : self._compute_hash(n), name.split("/"))
         self.root.insert(name, item)
+        end = time.time()
+        return time
 
 # The "anonymous" tree
 class ABTree(object):
@@ -99,6 +112,7 @@ class ABTree(object):
 n = int(sys.argv[1])
 table = ABTable(n)
 
+# Create some names to insert
 names = [
     "/a/b/c/d1",
     "/a/b/c/d2",
@@ -111,25 +125,12 @@ names = [
     "/a/b3",
 ]
 
-names = map(lambda n : n.split("/"), names)
+# Insert them
 for name in names:
     table.add_item(name, 1) # 1 is the item we're adding (link ID in this case)
 
-p = table.params.p
-
-# Test it out.
+# Display the resulting tree
 print table.root
-
-
-
-
-# Generate the secret and salts
-# secret = random.randint(0, p)
-# r = random.randint(0, p)
-# s = random.randint(0, p)
-# h2 = hash(name, s, g, gk, p)
-# equal = compare(h1, h2, k, gk)
-# print "%s == %s? %s" % (str(h1), str(h2), equal)
 
 # Protocol:
 # - Two adjacent nodes exchange public keys and group parameters... that's it.
