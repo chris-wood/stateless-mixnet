@@ -59,24 +59,42 @@ class ABTable(object):
 
     @timed
     def add_item(self, name, item):
-        start = time.time()
         name = map(lambda n : self._compute_hash(n), name.split("/"))
         self.root.insert(name, item)
-        end = time.time()
-        return time
+
+    @timed
+    def lookup_name(self, name):
+        name = map(lambda n : self._compute_hash(n), name.split("/"))
+        return self.root.lookup(name)
 
 # The "anonymous" tree
 class ABTree(object):
     def __init__(self, params):
         self.entries = []
         self.params = params
-        self.item = None
+        self.items = []
 
     def find_match(self, value):
         for (entry, child) in self.entries:
             if compare(entry, value, self.params.k, self.params.p):
                 return child
         return None
+
+    def insert_item(self, item):
+        if item not in self.items:
+            self.items.append(item)
+
+    def lookup(self, components):
+        head = components[0]
+        match = self.find_match(head)
+
+        if match != None:
+            if len(components) > 1:
+                return match.lookup(components[1:])
+            else:
+                return match.items
+        else:
+            return None
 
     def insert(self, components, item):
         head = components[0]
@@ -86,19 +104,20 @@ class ABTree(object):
             if len(components) > 1:
                 match.insert(components[1:], item)
             else:
-                self.item = item
+                match.insert_item(item)
         else:
             child = ABTree(self.params)
             if len(components) > 1 :
                 child.insert(components[1:], item)
+            else: 
+                child.insert_item(item)
             self.entries.append((head, child))
 
     def __tostring__(self, indents = 0):
-        s = ""
+        s = " -> " + str(self.items) + "\n"
         for (entry, child) in self.entries:
             s += "  " * indents
-            s += str(entry)
-            s += "\n"
+            s += "%s" % (str(entry))
             s += child.__tostring__(indents + 1)
         return s
 
@@ -128,9 +147,15 @@ names = [
 # Insert them
 for name in names:
     table.add_item(name, 1) # 1 is the item we're adding (link ID in this case)
+table.add_item("/b", 2)
 
 # Display the resulting tree
 print table.root
+
+# Lookup
+for name in names:
+    print table.lookup_name(name)
+print table.lookup_name("/b")
 
 # Protocol:
 # - Two adjacent nodes exchange public keys and group parameters... that's it.
