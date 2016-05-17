@@ -45,7 +45,9 @@ class ABTable(object):
     def __init__(self, n):
         self.n = n
 
-        p = primes.get_nth_prime(n)
+        # p = primes.get_nth_prime(n)
+        # 1024-bit prime generated from openssl (see README)
+        p = int("D5C21E4246C62176FF0A22637207224972EE1B9D65387383EB1897032472F1F40940448E0FB24CBD791FD89A491000B507CC510345457513189F4A62666F1C03896FBB07A17C75E4BCC7B1289CE252417303E8A537728BFF1D9187261DCD1FD18D1F48953C8526607B657A8B0422BBCFEF1A6F24470FFB23C7DFE1F936E05CFF", 16)
         g = random.randint(0, p)
         k = random.randint(0, p)
         self.params = Params(g, k, p)
@@ -59,13 +61,13 @@ class ABTable(object):
 
     @timed
     def add_item(self, name, item):
-        name = map(lambda n : self._compute_hash(n), name.split("/"))
-        self.root.insert(name, item)
+        obfuscated_name = map(lambda n : self._compute_hash(n), name.split("/"))
+        self.root.insert(obfuscated_name, (name, item))
 
     @timed
-    def lookup_name(self, name):
+    def lookup_name(self, name, start_prefix_length = 0):
         name = map(lambda n : self._compute_hash(n), name.split("/"))
-        return self.root.lookup(name)
+        return self.root.lookup(name, start_prefix_length)
 
 # The "anonymous" tree
 class ABTree(object):
@@ -84,13 +86,13 @@ class ABTree(object):
         if item not in self.items:
             self.items.append(item)
 
-    def lookup(self, components):
-        head = components[0]
+    def lookup(self, components, start_prefix_length = 0):
+        head = components[start_prefix_length]
         match = self.find_match(head)
 
         if match != None:
             if len(components) > 1:
-                return match.lookup(components[1:])
+                return match.lookup(components[(start_prefix_length + 1):])
             else:
                 return match.items
         else:
@@ -107,9 +109,9 @@ class ABTree(object):
                 match.insert_item(item)
         else:
             child = ABTree(self.params)
-            if len(components) > 1 :
+            if len(components) > 1:
                 child.insert(components[1:], item)
-            else: 
+            else:
                 child.insert_item(item)
             self.entries.append((head, child))
 
@@ -131,7 +133,7 @@ class ABTree(object):
 n = int(sys.argv[1])
 table = ABTable(n)
 
-# Create some names to insert
+# Read in URIs from the data file
 names = [
     "/a/b/c/d1",
     "/a/b/c/d2",
@@ -144,7 +146,15 @@ names = [
     "/a/b3",
 ]
 
+# If a file was provided, use that instead
+if (len(sys.argv) > 2):
+    with open(sys.argv[2], "r") as fh:
+        for line in fh:
+            line = line.strip()
+            names.append(line)
+
 # Insert them
+index = 0
 for name in names:
     table.add_item(name, 1) # 1 is the item we're adding (link ID in this case)
 table.add_item("/b", 2)
