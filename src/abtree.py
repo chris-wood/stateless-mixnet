@@ -53,21 +53,43 @@ class ABTable(object):
         self.params = Params(g, k, p)
 
         self.root = ABTree(self.params)
+        self.levels = { 0: [self.root] }
 
     def _compute_hash(self, val):
         val = int_digest(val) % self.params.p
         r = random.randint(0, self.params.p)
         return hash(val, r, self.params.g, self.params.gk, self.params.p)
 
+    def _transform_name(self, name):
+        segments = name.split("/")[1:]
+        merged_segments = []
+        for i, toss in enumerate(segments):
+            merged = ""
+            for j in range(i + 1):
+                merged += segments[j]
+            merged_segments.append(merged)
+        return merged_segments
+
     @timed
     def add_item(self, name, item):
-        obfuscated_name = map(lambda n : self._compute_hash(n), name.split("/"))
-        self.root.insert(obfuscated_name, (name, item))
+        name_segments = self._transform_name(name)
+        obfuscated_name = map(lambda n : self._compute_hash(n), name_segments)
+        levels = self.root.insert(obfuscated_name, (name, item))
+        
+        for i, level in enumerate(levels):
+            if i not in self.levels:
+                self.levels[i] = []
+            self.levels[i].append(level)
 
     @timed
     def lookup_name(self, name, start_prefix_length = 0):
-        name = map(lambda n : self._compute_hash(n), name.split("/"))
-        return self.root.lookup(name, start_prefix_length)
+        name_segments = self._transform_name(name)
+        name = map(lambda n : self._compute_hash(n), name_segments)
+
+        for level in self.levels[start_prefix_length]:
+            match = level.lookup(name[start_prefix_length:])
+            if match != None:
+                return match
 
 # The "anonymous" tree
 class ABTree(object):
@@ -87,12 +109,15 @@ class ABTree(object):
             self.items.append(item)
 
     def lookup(self, components, start_prefix_length = 0):
+        if len(components) == 0:
+            return None
+
         head = components[start_prefix_length]
         match = self.find_match(head)
 
         if match != None:
             if len(components) > 1:
-                return match.lookup(components[(start_prefix_length + 1):])
+                return match.lookup(components[(start_prefix_length + 1):], 0)
             else:
                 return match.items
         else:
@@ -103,17 +128,23 @@ class ABTree(object):
         match = self.find_match(head)
 
         if match != None:
+            levels = [self]
             if len(components) > 1:
-                match.insert(components[1:], item)
+                levels.extend(match.insert(components[1:], item))
             else:
                 match.insert_item(item)
+
+            return levels
         else:
             child = ABTree(self.params)
+            levels = [self]
             if len(components) > 1:
-                child.insert(components[1:], item)
+                levels.extend(child.insert(components[1:], item))
             else:
                 child.insert_item(item)
             self.entries.append((head, child))
+            
+            return levels
 
     def __tostring__(self, indents = 0):
         s = " -> " + str(self.items) + "\n"
@@ -165,6 +196,8 @@ print table.root
 # Lookup
 for name in names:
     print table.lookup_name(name)
+    print table.lookup_name(name, 2)
+    print ""
 print table.lookup_name("/b")
 
 # Protocol:
