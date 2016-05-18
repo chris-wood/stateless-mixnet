@@ -1,0 +1,117 @@
+\documentclass{article}
+
+\makeatletter
+
+\def\ps@headings{%
+
+\def\@oddhead{\mbox{}\scriptsize\rightmark \hfil \thepage}%
+
+\def\@evenhead{\scriptsize\thepage \hfil \leftmark\mbox{}}%
+
+\def\@oddfoot{}%
+
+\def\@evenfoot{}}
+
+\makeatother
+
+\pagestyle{headings}
+
+\usepackage{color}
+\usepackage{graphicx}
+\usepackage{amsmath, amsthm}
+\usepackage[varg]{txfonts}
+\usepackage{algorithmic}
+\usepackage[ruled,vlined,boxed]{algorithm2e}
+\usepackage{cite,url}
+\usepackage{multirow,paralist}
+\usepackage{todonotes}
+\usepackage{fancybox}
+
+\newtheorem{definition}{Definition}
+\newtheorem{remark}{Remark}
+\newtheorem{thm}{Theorem}
+
+\begin{document}
+\title{Sponge: Anonymous Communication without Onion Encryption}
+
+\maketitle
+
+\section{Notation}
+
+\begin{itemize}
+    \item Let $\lambda$ be the security parameter.
+    \item Let $H$ be a cryptographic hash function with output size $\lambda$.
+    \item Let $F_k$ be a PRF with key $k$ and output size $\lambda$. 
+    \item Let $Cr$, $R$, and $P$ be a consumer, router, and producer, respectively.
+    \item Let $I(N,s)$, $P(N,s)$, and $C(N)$ be an interest, push interest, and content object, respectively
+    with the name $N$ and nonce $s$.
+\end{itemize}
+
+\section{Main Goal}
+The desired security goal is that for a given name $N$, the probability for any
+probabilistic polynomial time adversary to distinguish the transformed version
+of $N$ -- $T(N)$ -- from a random string is negligible (in something). This implies that
+the distribution $(T(N), T(N))$ for a fixed $N$ is computationally indistinguishable 
+from the tuple $(T(N), r)$ for the same $N$ and random $r$. Here, we assume that $T(N)$
+is a probabilistic algorithm. 
+
+TODO: describe the transform and compare functions abstractly here (transform must generate
+and output a random salt so that dictionary attacks are not possible.)
+
+TODO: give the construction based on DL and prove it
+
+Assume that a node had some data structure with two procedures: {\sf insert} and {\sf lookup}. 
+These procedures work as follows:
+%
+\begin{itemize}
+    \item {\sf insert}: Given a name $N$ and value $v$, insert an element into the data structure which maps to $v$ if not already present.
+    \item {\sf lookup}: Given a name $N$, return the value $v$ associated with it in the data structure.
+\end{itemize}
+%
+
+We do not specify how they are implemented. Let $k$ be the number of unique elements in this
+data structure at any given point in time. We will prove that their respective runtimes must 
+be $\mathcal{O}(1)$ and $\mathcal{O}(k)$, respectively. 
+
+\begin{thm}
+Let $D$ be a data structure as defined above. Its {\sf insert} operation runs in $\Omega(1)$ time.
+\end{thm}
+\begin{proof}
+TODO: hash table. constant time insertion.
+\end{proof}
+
+\begin{thm}
+Let $D$ be a data structure as defined above. Its {\sf lookup} operation runs in $\Theta(k)$ time.
+\end{thm}
+\begin{proof}
+TODO: every element is indistinguishable from the rest. comparison by exact match will not work, must run
+the comparison over every element in the database. done. 
+
+proof by reduction: 
+- assume that some implementation did exist that ran in time less than $k$. 
+- show how this could be used to distinguish between the two distributions above.
+    - for the valid one, the time would be less than $k$
+    - for the invalid one, the time must be $k$ (since all must be checked)
+\end{proof}
+
+\section{Onions vs Sponges}
+Sponges allow a node to route a packet without having any pre-allocated state with 
+the node. Also, onions ultimately reveal the plaintext to some entry in the circuit (the 
+exit node). Conversely, sponges reveal nothing about the name to each node. However,
+onions can be forwarded in (roughly) constant time. 
+
+Question: are there cases where sponges would be forwarded just as fast as onions?
+(with respect to total end-to-end forwarding delay...)
+
+Onion: requires $h$ computations for a circuit of length $h$ -- average length of circuit is at most 5 hops (?) (this is small!)
+Sponge: depends on the namespace tree... the size of the tree cut (include each node in that tree)
+
+Question: so if sponges are less efficient and induce more network overhead, why would we use them? 
+Answer: you don't! Encapsulation is the *best* way to go from an efficiency perspective
+Implication: Supporting both caching and private requests (efficiently) is not possible
+
+\section{Relation to PIR}
+TODO: we examine the CPIR model since IPIR assumes multiple non-colluding servers. Here, we assume a sequence of 
+individual servers (caches). Moreover, we want the protocol to run in a single round. 
+
+\end{document}
